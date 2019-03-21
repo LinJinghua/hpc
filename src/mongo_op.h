@@ -1,8 +1,11 @@
 #ifndef ___MONGO_OP_H___
 #define ___MONGO_OP_H___
 
+#include "zinc.h"
+
 #include <mongoc.h>
 #include <bson.h>
+#include <string.h>
 
 #ifndef DATABASE_NAME
 #define DATABASE_NAME "zinc_data"
@@ -77,6 +80,42 @@ int mongo_destroy() {
     mongo_res_free();
     mongoc_cleanup();
     return 0;
+}
+
+unsigned int zinc_entry_set(zinc_entry* entry, const bson_t* doc) {
+    bson_iter_t iter;
+    if (!bson_iter_init(&iter, doc)) {
+        return -1;
+    }
+    unsigned int total_len = 2;
+    while (bson_iter_next(&iter)) {
+        const char* key = bson_iter_key(&iter);
+        if (strcmp(key, "index_name") == 0) {
+            if (BSON_ITER_HOLDS_UTF8(&iter)) {
+                unsigned int len;
+                entry->index_name = bson_iter_utf8(&iter, &len);
+                total_len += len;
+            } else {
+                fprintf(stderr, "[Error] Type(index_name) error\n");
+            }
+        } else if (strcmp(key, "pdbqt_file") == 0) {
+            if (BSON_ITER_HOLDS_UTF8(&iter)) {
+                unsigned int len;
+                entry->pdbqt_file = bson_iter_utf8(&iter, &len);
+                total_len += len;
+            } else {
+                fprintf(stderr, "[Error] Type(pdbqt_file) error\n");
+            }
+        } else if (strcmp(key, "num_atoms") == 0) {
+            if (BSON_ITER_HOLDS_INT32(&iter)) {
+                total_len += snprintf(entry->num_atoms,
+                    sizeof(entry->num_atoms), "%d", bson_iter_int32(&iter));
+            } else {
+                fprintf(stderr, "[Error] Type(num_atoms) error\n");
+            }
+        }
+    }
+    return total_len;
 }
 
 #endif // ! ___MONGO_OP_H___

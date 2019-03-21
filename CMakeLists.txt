@@ -37,5 +37,8 @@ message("--   mongoc project  ${PROJECT_SOURCE_DIR}")
 add_executable(producer ${SRCS_DIR})
 target_include_directories(producer PRIVATE "${MONGOC_INCLUDE_DIRS}")
 target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
+
+# target_compile_definitions(producer PRIVATE DEBUG_CHECK)
 target_compile_definitions(producer PRIVATE TEST_ZLIB)
+# target_compile_definitions(producer PRIVATE TEST_REDIS_RW)
 

@@ -1,9 +1,21 @@
 #ifndef ___REDIS_OP_H___
 #define ___REDIS_OP_H___
 
+#include "zlib_op.h"
+
 #include <hiredis.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifndef REDIS_QUEUE_KEY
+#define REDIS_QUEUE_KEY "task"
+#endif // !REDIS_QUEUE_KEY
+#ifndef REDIS_RETRY_TIMES
+#define REDIS_RETRY_TIMES 3
+#endif // !REDIS_RETRY_TIMES
+#ifndef REDIS_RETRY_TIMEOUT
+#define REDIS_RETRY_TIMEOUT "1"
+#endif // !REDIS_RETRY_TIMEOUT
 
 static redisContext* _redis_conn;
 
@@ -43,14 +55,16 @@ int redis_destroy() {
     return 0;
 }
 
-int redis_push() {
+int redis_push(const char* bytes, unsigned long len) {
 #ifdef DEBUG_CHECK
     if (!_redis_conn) {
         return 0;
     }
 #endif // !DEBUG_CHECK
-    for (int test = 3; test--; ) {
-        redisReply* reply = redisCommand(_redis_conn, "LPUSH tasks %b", "a", 1);
+    bytes = compress_bytes(bytes, &len);
+    for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
+        redisReply* reply = redisCommand(_redis_conn,
+            "LPUSH " REDIS_QUEUE_KEY " %b", bytes, len);
         if (reply->type == REDIS_REPLY_ERROR) {
             fprintf(stderr, "[Error] LPUSH: %s\n", reply->str);
             freeReplyObject(reply);
@@ -60,6 +74,33 @@ int redis_push() {
         }
     }
     return 0;
+}
+
+const char* redis_pop() {
+#ifdef DEBUG_CHECK
+    if (!_redis_conn) {
+        return NULL;
+    }
+#endif // !DEBUG_CHECK
+    for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
+        redisReply* reply = redisCommand(_redis_conn,
+            "BRPOP " REDIS_QUEUE_KEY " " REDIS_RETRY_TIMEOUT);
+        if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2) {
+            unsigned long len = reply->element[1]->len;
+            const char* str = uncompress_bytes(reply->element[1]->str, &len);
+#ifdef DEBUG_CHECK
+            if (len > STRING_MAX_LEN) {
+                fprintf(stderr, "[Error] BRPOP: len(data): %lu\n", len);
+            }
+#endif // !DEBUG_CHECK
+            freeReplyObject(reply);
+            return str;
+        } else {
+            fprintf(stderr, "[Error] BRPOP: %s\n", reply->str);
+            freeReplyObject(reply);
+        }
+    }
+    return NULL;
 }
 
 
