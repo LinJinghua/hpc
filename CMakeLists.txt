@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project(hpc C)
 
+# set(CMAKE_VERBOSE_MAKEFILE ON)
+
 # Specify the minimum version you require.
 # find_package(libmongoc-1.0 1.7 REQUIRED)
 
