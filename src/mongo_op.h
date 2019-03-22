@@ -7,13 +7,6 @@
 #include <bson.h>
 #include <string.h>
 
-#ifndef DATABASE_NAME
-#define DATABASE_NAME "zinc_data"
-#endif // ! DATABASE_NAME
-#ifndef COLLECTION_NAME
-#define COLLECTION_NAME "zinc_ligand_1w_sort"
-#endif // ! COLLECTION_NAME
-
 
 #define CHECK_MONGO_ERR(condition, ...) do {                \
     if (condition) {                                        \
@@ -47,12 +40,24 @@ int mongo_res_free() {
 }
 
 
-int mongo_init() {
+int mongo_init(int argc, char **argv) {
+    const char *uri_string = argc > 3? argv[3] : "mongodb://127.0.0.1:27017";
+    const char *database_name = argc > 4? argv[4] : "zinc_data";
+    const char *collection_name = argc > 5? argv[5] : "zinc_ligand_1w_sort";
+    entry_id_set(database_name, collection_name);
+    if (argc > 7) {
+        entry_id_set_field(argv[6], argv[7]);
+    } else {
+        if (database_name[0] == 'z') {
+            entry_id_set_field("index_name", "pdbqt_file");
+        } else {
+            entry_id_set_field("sdf_name", "sdf_data");
+        }
+    };
+
     mongo_res_int();
     mongoc_init();
 
-    // const char *uri_string = "mongodb://12.11.70.12:10101";
-    const char *uri_string = "mongodb://127.0.0.1:27017";
     bson_error_t error;
     _mongo_res.uri = mongoc_uri_new_with_error(uri_string, &error);
     CHECK_MONGO_ERR(!_mongo_res.uri, "[Error] failed to parse URI: %s\nerror message: %s\n",
@@ -71,7 +76,8 @@ int mongo_init() {
     bson_destroy(&reply);
 
     // _mongo_res.database = mongoc_client_get_database(client, "db_name");
-    _mongo_res.collection = mongoc_client_get_collection(_mongo_res.client, DATABASE_NAME, COLLECTION_NAME);
+    _mongo_res.collection = mongoc_client_get_collection(
+        _mongo_res.client, database_name, collection_name);
 
     return 1;
 }
@@ -82,36 +88,31 @@ int mongo_destroy() {
     return 0;
 }
 
-unsigned int zinc_entry_set(zinc_entry* entry, const bson_t* doc) {
+unsigned int data_entry_set(data_entry* entry, const bson_t* doc) {
     bson_iter_t iter;
     if (!bson_iter_init(&iter, doc)) {
-        return -1;
+        return 0;
     }
-    unsigned int total_len = 2;
+    const char* name_field = entry_id_get_name_field();
+    const char* data_field = entry_id_get_data_field();
+    unsigned int total_len = 1;
     while (bson_iter_next(&iter)) {
         const char* key = bson_iter_key(&iter);
-        if (strcmp(key, "index_name") == 0) {
+        if (strcmp(key, name_field) == 0) {
             if (BSON_ITER_HOLDS_UTF8(&iter)) {
                 unsigned int len;
-                entry->index_name = bson_iter_utf8(&iter, &len);
+                entry->name = bson_iter_utf8(&iter, &len);
                 total_len += len;
             } else {
-                fprintf(stderr, "[Error] Type(index_name) error\n");
+                fprintf(stderr, "[Error] Type(%s) error\n", name_field);
             }
-        } else if (strcmp(key, "pdbqt_file") == 0) {
+        } else if (strcmp(key, data_field) == 0) {
             if (BSON_ITER_HOLDS_UTF8(&iter)) {
                 unsigned int len;
-                entry->pdbqt_file = bson_iter_utf8(&iter, &len);
+                entry->data = bson_iter_utf8(&iter, &len);
                 total_len += len;
             } else {
-                fprintf(stderr, "[Error] Type(pdbqt_file) error\n");
-            }
-        } else if (strcmp(key, "num_atoms") == 0) {
-            if (BSON_ITER_HOLDS_INT32(&iter)) {
-                total_len += snprintf(entry->num_atoms,
-                    sizeof(entry->num_atoms), "%d", bson_iter_int32(&iter));
-            } else {
-                fprintf(stderr, "[Error] Type(num_atoms) error\n");
+                fprintf(stderr, "[Error] Type(%s) error\n", data_field);
             }
         }
     }

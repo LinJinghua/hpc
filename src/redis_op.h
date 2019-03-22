@@ -1,15 +1,13 @@
 #ifndef ___REDIS_OP_H___
 #define ___REDIS_OP_H___
 
+#include "zinc.h"
 #include "zlib_op.h"
 
 #include <hiredis.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef REDIS_QUEUE_KEY
-#define REDIS_QUEUE_KEY "task"
-#endif // !REDIS_QUEUE_KEY
 #ifndef REDIS_RETRY_TIMES
 #define REDIS_RETRY_TIMES 3
 #endif // !REDIS_RETRY_TIMES
@@ -22,7 +20,7 @@ static redisContext* _redis_conn;
 int redis_init(int argc, char **argv) {
     _redis_conn = NULL;
     unsigned int isunix = 0;
-    const char *hostname = (argc > 1) ? argv[1] : "10.186.5.116";
+    const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
 
     if (argc > 2) {
         if (*argv[2] == 'u' || *argv[2] == 'U') {
@@ -61,10 +59,13 @@ int redis_push(const char* bytes, unsigned long len) {
         return 0;
     }
 #endif // !DEBUG_CHECK
+    if (!bytes) {
+        return 0;
+    }
     bytes = compress_bytes(bytes, &len);
     for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
         redisReply* reply = redisCommand(_redis_conn,
-            "LPUSH " REDIS_QUEUE_KEY " %b", bytes, len);
+            "LPUSH %s %b", entry_id_get(), bytes, len);
         if (reply->type == REDIS_REPLY_ERROR) {
             fprintf(stderr, "[Error] LPUSH: %s\n", reply->str);
             freeReplyObject(reply);
@@ -84,7 +85,7 @@ const char* redis_pop() {
 #endif // !DEBUG_CHECK
     for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
         redisReply* reply = redisCommand(_redis_conn,
-            "BRPOP " REDIS_QUEUE_KEY " " REDIS_RETRY_TIMEOUT);
+            "BRPOP %s " REDIS_RETRY_TIMEOUT, entry_id_get());
         if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2) {
             unsigned long len = reply->element[1]->len;
             const char* str = uncompress_bytes(reply->element[1]->str, &len);

@@ -4,37 +4,83 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifndef _ID_MAX_LEN
+#define _ID_MAX_LEN (256)
+#endif // !_ID_MAX_LEN
 #ifndef STRING_MAX_LEN
 #define STRING_MAX_LEN (16 * 1024 * 1024)
 #endif // !STRING_MAX_LEN
 
-typedef struct zinc_entry {
-    const char* index_name;
-    const char* pdbqt_file;
-    char num_atoms[16];
-} zinc_entry;
+typedef struct entry_id {
+    const char* name_field;
+    const char* data_field;
+    char id[_ID_MAX_LEN];
+} entry_id;
 
-int zinc_entry_cmp(zinc_entry* a, zinc_entry* b) {
-    return strcmp(a->index_name, b->index_name)
-        || strcmp(a->pdbqt_file, b->pdbqt_file)
-        || strcmp(a->num_atoms, b->num_atoms);
+static entry_id _entry_id;
+
+const char* entry_id_get_name_field() {
+    return _entry_id.data_field;
 }
 
-void zinc_entry_init(zinc_entry* entry) {
-    entry->index_name = NULL;
-    entry->pdbqt_file = NULL;
-    entry->num_atoms[0] = '\0';
+const char* entry_id_get_data_field() {
+    return _entry_id.name_field;
 }
 
-zinc_entry zinc_entry_get(const char* str) {
-    zinc_entry entry;
-    entry.index_name = str;
-    entry.pdbqt_file = strchr(str, '\0') + 1;
-    strcpy(entry.num_atoms, strchr(entry.pdbqt_file, '\0') + 1);
+void entry_id_set_field(const char* name_field, const char* data_field) {
+    _entry_id.name_field = name_field;
+    _entry_id.data_field = data_field;
+}
+
+const char* entry_id_get() {
+    return _entry_id.id;
+}
+
+int entry_id_set(const char *database_name, const char *collection_name) {
+    size_t len_db = strlen(database_name), len_coll = strlen(collection_name);
+    if (len_db >= sizeof(_entry_id.id)) {
+        len_db = sizeof(_entry_id.id) - 1;
+        len_coll = 0;
+    } else if (len_db + len_coll > sizeof(_entry_id.id)) {
+        len_coll = sizeof(_entry_id.id) - 1 - len_db;
+    }
+    _entry_id.id[len_db + len_coll] = '\0';
+    memcpy(_entry_id.id, database_name, len_db);
+    memcpy(_entry_id.id + len_db, collection_name, len_coll);
+    char* str = _entry_id.id;
+    for (const char* p = _entry_id.id; *p; ++p) {
+        if (*p != ' ') {
+            *str++ = *p;
+        }
+    }
+    *str = '\0';
+    fprintf(stdout, "[Info] _id: `%s`\n",  entry_id_get());
+    return 0;
+}
+
+typedef struct data_entry {
+    const char* name;
+    const char* data;
+} data_entry;
+
+int data_entry_cmp(data_entry* a, data_entry* b) {
+    return strcmp(a->name, b->name)
+        || strcmp(a->data, b->data);
+}
+
+void data_entry_init(data_entry* entry) {
+    entry->name = NULL;
+    entry->data = NULL;
+}
+
+data_entry data_entry_get(const char* str) {
+    data_entry entry;
+    entry.name = str;
+    entry.data = strchr(str, '\0') + 1;
     return entry;
 }
 
-static char* strcpy_len(char* dest, const char* src) {
+static char* entrycpy(char* dest, const char* src) {
     while (*src) {
         *dest++ = *src++;
     }
@@ -42,21 +88,19 @@ static char* strcpy_len(char* dest, const char* src) {
     return dest;
 }
 
-const char* zinc_entry_string(zinc_entry* entry, const unsigned int len) {
+const char* data_entry_string(data_entry* entry, const unsigned int len) {
     static char buf[STRING_MAX_LEN];
-    if (len > sizeof(buf) || !entry->index_name
-        || !entry->pdbqt_file || !entry->num_atoms[0]) {
+    if (len > sizeof(buf) || !entry->name || !entry->data) {
         return NULL;
     }
-    char* str = strcpy_len(buf, entry->index_name);
-    str = strcpy_len(str + 1, entry->pdbqt_file);
+    char* str = entrycpy(buf, entry->name);
 #ifdef DEBUG_CHECK
-    str = strcpy_len(str + 1, entry->num_atoms);
+    str = entrycpy(str + 1, entry->data);
     if (len != (unsigned)(str - buf)) {
         fprintf(stderr, "[Debug] %u but expect %u\n", (unsigned)(str - buf), len);
     }
 #else
-    strcpy_len(str + 1, entry->num_atoms);
+    entrycpy(str + 1, entry->data);
 #endif // !DEBUG_CHECK
     return buf;
 }
