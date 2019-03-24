@@ -20,11 +20,11 @@ typedef struct entry_id {
 static entry_id _entry_id;
 
 const char* entry_id_get_name_field() {
-    return _entry_id.data_field;
+    return _entry_id.name_field;
 }
 
 const char* entry_id_get_data_field() {
-    return _entry_id.name_field;
+    return _entry_id.data_field;
 }
 
 void entry_id_set_field(const char* name_field, const char* data_field) {
@@ -34,6 +34,21 @@ void entry_id_set_field(const char* name_field, const char* data_field) {
 
 const char* entry_id_get() {
     return _entry_id.id;
+}
+
+int entry_id_check(const char* p) {
+    char *str = _entry_id.id, *end = _entry_id.id + sizeof(_entry_id.id) - 1;
+    for (; *p; ++p) {
+        if (*p != ' ') {
+            *str = *p;
+            if (++str >= end) {
+                break;
+            }
+        }
+    }
+    *str = '\0';
+    fprintf(stdout, "[Info] _id: `%s`\n",  entry_id_get());
+    return 0;
 }
 
 int entry_id_set(const char *database_name, const char *collection_name) {
@@ -47,15 +62,8 @@ int entry_id_set(const char *database_name, const char *collection_name) {
     _entry_id.id[len_db + len_coll] = '\0';
     memcpy(_entry_id.id, database_name, len_db);
     memcpy(_entry_id.id + len_db, collection_name, len_coll);
-    char* str = _entry_id.id;
-    for (const char* p = _entry_id.id; *p; ++p) {
-        if (*p != ' ') {
-            *str++ = *p;
-        }
-    }
-    *str = '\0';
-    fprintf(stdout, "[Info] _id: `%s`\n",  entry_id_get());
-    return 0;
+
+    return entry_id_check(_entry_id.id);
 }
 
 typedef struct data_entry {

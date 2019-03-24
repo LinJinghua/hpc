@@ -1,5 +1,7 @@
 #include "redis_op.h"
 #include "mongo_op.h"
+#include "shell.h"
+#include "vina.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,18 +11,51 @@ int init_env(int argc, char **argv) {
     return redis_init(argc, argv) && mongo_init(argc, argv);
 }
 
+int init_cluster(int argc, char **argv) {
+    const char* schedule_addr = (argc > 1) ? argv[1] : "127.0.0.1:8080";
+    const char* redis_queue = (argc > 2) ? argv[2] : "task";
+    entry_id_check(redis_queue);
+    return vina_init() && make_work_dir()
+        && redis_connect(host_get(schedule_addr), REDIS_PORT);
+}
+
+int destory_cluster() {
+    redis_destroy();
+    destory_work_dir();
+    return 0;
+}
+
 int destory_env() {
     redis_destroy();
     mongo_destroy();
     return 0;
 }
 
+int write_result(const char* name, const char* mol_file) {
+    size_t len;
+    char* data = file_str(mol_file, &len);
+    return data && redis_record(name, data, len);
+}
+
 int redis_get() {
+    char name[_ID_MAX_LEN];
     for (const char* str = redis_pop(); str; str = redis_pop()) {
         data_entry entry = data_entry_get(str);
-        printf("name: %s data: %s\n", entry.name, entry.data);
+        strncpy(name, entry.name, sizeof(name) - 1);
+        // printf("name: %s data: %s\n", entry.name, entry.data);
+        const char* vina_file = "vina_file";
+        const char* pdbqt_file = "pdbqt_file";
+        const char* mol_file = "mol_file";
+        if (write_file(vina_file, entry.data, strlen(entry.data))
+            && vina_run(vina_file, pdbqt_file) == 0
+            && obabel_run(pdbqt_file, mol_file) == 0
+            && write_result(name, mol_file)) {
+            fprintf(stdout, "[Info] Run task %s succ\n", name);
+        } else {
+            fprintf(stderr, "[Error] Run task %s failed\n", name);
+        }
     }
-    return 1;
+    return 0;
 }
 
 int mongo_get() {
@@ -63,17 +98,29 @@ int mongo_get() {
     return 1;
 }
 
-int process() {
-    mongo_get();
-    // redis_get();
+int producer(int argc, char **argv) {
+    // ./producer 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
+    if (init_env(argc, argv)) {
+        mongo_get();
+    }
+    destory_env();
+    return 0;
+}
+
+int consumer(int argc, char **argv) {
+    // ./consumer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort   
+    if (init_cluster(argc, argv)) {
+        redis_get();
+    }
+    destory_cluster();
     return 0;
 }
 
 int main(int argc, char **argv) {
-    return test_compress(argc, argv);
-    if (init_env(argc, argv)) {
-        process();
+    if (strstr(argv[0], "consumer")) {
+        consumer(argc, argv);
+    } else {
+        producer(argc, argv);
     }
-    destory_env();
     return 0;
 }

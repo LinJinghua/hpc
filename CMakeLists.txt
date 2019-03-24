@@ -44,3 +44,7 @@ target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
 target_compile_definitions(producer PRIVATE TEST_ZLIB)
 # target_compile_definitions(producer PRIVATE TEST_REDIS_RW)
 
+add_custom_command(TARGET producer
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/producer ${CMAKE_BINARY_DIR}/consumer
+)

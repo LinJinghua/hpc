@@ -14,13 +14,36 @@
 #ifndef REDIS_RETRY_TIMEOUT
 #define REDIS_RETRY_TIMEOUT "1"
 #endif // !REDIS_RETRY_TIMEOUT
+#ifndef REDIS_PORT
+#define REDIS_PORT 6379
+#endif // !REDIS_PORT
 
 static redisContext* _redis_conn;
+
+int redis_check() {
+    if (_redis_conn == NULL) {
+        fprintf(stderr, "[Error] Redis connection error: can't allocate redis context\n");
+        return 0;
+    }
+    if (_redis_conn->err) {
+        fprintf(stderr, "[Error] Redis connection error: %s\n", _redis_conn->errstr);
+        redisFree(_redis_conn);
+        _redis_conn = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+int redis_connect(const char* hostname, int port) {
+    struct timeval timeout = { 1, 500000 }; // 1.5 seconds
+    _redis_conn = redisConnectWithTimeout(hostname, port, timeout);
+    return redis_check();
+}
 
 int redis_init(int argc, char **argv) {
     _redis_conn = NULL;
     unsigned int isunix = 0;
-    const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
+    const char* hostname = (argc > 1) ? argv[1] : "127.0.0.1";
 
     if (argc > 2) {
         if (*argv[2] == 'u' || *argv[2] == 'U') {
@@ -30,26 +53,53 @@ int redis_init(int argc, char **argv) {
         }
     }
 
-    int port = (argc > 2) ? atoi(argv[2]) : 6379;
+    int port = (argc > 2) ? atoi(argv[2]) : REDIS_PORT;
 
     struct timeval timeout = { 1, 500000 }; // 1.5 seconds
     _redis_conn = isunix? redisConnectUnixWithTimeout(hostname, timeout)
                         : redisConnectWithTimeout(hostname, port, timeout);
-    if (_redis_conn == NULL) {
-        fprintf(stderr, "[Error] Connection error: can't allocate redis context\n");
-        return 0;
-    }
-    if (_redis_conn->err) {
-        fprintf(stderr, "[Error] Connection error: %s\n", _redis_conn->errstr);
-        redisFree(_redis_conn);
-        _redis_conn = NULL;
-        return 0;
-    }
-    return 1;
+    return redis_check();
 }
 
 int redis_destroy() {
     redisFree(_redis_conn);
+    return 0;
+}
+
+int redis_set(const char* key, const char* value, unsigned long len) {
+    value = compress_bytes(value, &len);
+    redisReply* reply = redisCommand(_redis_conn,
+        "SET %s %b", key, value, len);
+    if (reply->type != REDIS_REPLY_ERROR) {
+        freeReplyObject(reply);
+        return 1;
+    }
+    fprintf(stderr, "[Error] SET %s: %s\n", key, reply->str);
+    freeReplyObject(reply);
+    return 0;
+}
+
+int redis_record(const char* key, const char* value, unsigned long len) {
+#ifdef DEBUG_CHECK
+    if (!_redis_conn) {
+        return 0;
+    }
+#endif // !DEBUG_CHECK
+    if (!key || !value) {
+        fprintf(stderr, "[Error] redis_record %s: %s\n", key, value);
+        return 0;
+    }
+    for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
+        redisReply* reply = redisCommand(_redis_conn,
+            "LPUSH _%s %s", entry_id_get(), key);
+        if (reply->type == REDIS_REPLY_ERROR) {
+            fprintf(stderr, "[Error] LPUSH %s: %s\n", key, reply->str);
+            freeReplyObject(reply);
+        } else {
+            freeReplyObject(reply);
+            return redis_set(key, value, len);
+        }
+    }
     return 0;
 }
 
@@ -71,7 +121,7 @@ int redis_push(const char* bytes, unsigned long len) {
             freeReplyObject(reply);
         } else {
             freeReplyObject(reply);
-            break;
+            return 1;
         }
     }
     return 0;

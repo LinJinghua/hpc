@@ -48,10 +48,9 @@ int test_compress(int argc, char **argv) {
         return 1;
     }
     size_t len;
-    char* str = get_file(argv[1], &len);
+    char* str = file_str(argv[1], &len);
     if (str) {
         print_compress(str, len);
-        free_file(str);
     }
     return 0;
 }
