@@ -70,6 +70,7 @@ int process() {
 }
 
 int main(int argc, char **argv) {
+    return test_compress(argc, argv);
     if (init_env(argc, argv)) {
         process();
     }

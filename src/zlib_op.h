@@ -1,6 +1,8 @@
 #ifndef ___ZLIB_OP_H___
 #define ___ZLIB_OP_H___
 
+#include "file_op.h"
+
 #include <zlib.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,6 +35,25 @@ const char* uncompress_bytes(const void* bytes, unsigned long* bytes_len_p) {
     _zlib_buf[len] = '\0';
     *bytes_len_p = len;
     return _zlib_buf;
+}
+
+void print_compress(const void* bytes, unsigned long len) {
+    unsigned long comp_len = len;
+    compress_bytes(bytes, &comp_len);
+    printf("[compress] %lf,%lu/%lu\n", (double)comp_len / len, comp_len, len);
+}
+
+int test_compress(int argc, char **argv) {
+    if (argc < 2) {
+        return 1;
+    }
+    size_t len;
+    char* str = get_file(argv[1], &len);
+    if (str) {
+        print_compress(str, len);
+        free_file(str);
+    }
+    return 0;
 }
 
 #endif // ! ___ZLIB_OP_H___
