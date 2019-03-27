@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int init_env(int argc, char **argv) {
+int init_producer_mongo(int argc, char **argv) {
     return redis_init(argc, argv) && mongo_init(argc, argv);
 }
 
@@ -19,13 +19,27 @@ int init_cluster(int argc, char **argv) {
         && redis_connect(host_get(schedule_addr), REDIS_PORT);
 }
 
+int init_producer(int argc, char **argv, data_entry* entry) {
+    const char* schedule_addr = (argc > 1) ? argv[1] : "127.0.0.1:8080";
+    const char* redis_queue = (argc > 2) ? argv[2] : "task";
+    entry_id_check(redis_queue);
+    entry->name = (argc > 3) ? argv[3] : "target";
+    entry->data = (argc > 4) ? argv[4] : "target.pdbqt";
+    return redis_connect(host_get(schedule_addr), REDIS_PORT);
+}
+
+int destory_producer() {
+    redis_destroy();
+    return 0;
+}
+
 int destory_cluster() {
     redis_destroy();
     destory_work_dir();
     return 0;
 }
 
-int destory_env() {
+int destory_producer_mongo() {
     redis_destroy();
     mongo_destroy();
     return 0;
@@ -54,6 +68,18 @@ int redis_get() {
         } else {
             fprintf(stderr, "[Error] Run task %s failed\n", name);
         }
+    }
+    return 0;
+}
+
+int file_get(data_entry* entry) {
+    size_t len;
+    entry->data = file_str(entry->data, &len);
+    len += strlen(entry->name) + 1;
+    if (entry->data && redis_push(data_entry_string(entry, len), len)) {
+        fprintf(stdout, "[Info] Push succ.\n");
+    } else {
+        fprintf(stderr, "[Error] Push failed.\n");
     }
     return 0;
 }
@@ -98,17 +124,27 @@ int mongo_get() {
     return 1;
 }
 
-int producer(int argc, char **argv) {
-    // ./producer 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
-    if (init_env(argc, argv)) {
+int producer_mongo(int argc, char **argv) {
+    // ./producer_mongo 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
+    if (init_producer_mongo(argc, argv)) {
         mongo_get();
     }
-    destory_env();
+    destory_producer_mongo();
+    return 0;
+}
+
+int producer(int argc, char **argv) {
+    // ./producer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort ZINC21247520 ZINC21247520.pdbqt
+    data_entry entry;
+    if (init_producer(argc, argv, &entry)) {
+        file_get(&entry);
+    }
+    destory_producer();
     return 0;
 }
 
 int consumer(int argc, char **argv) {
-    // ./consumer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort   
+    // ./consumer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort
     if (init_cluster(argc, argv)) {
         redis_get();
     }
@@ -119,6 +155,8 @@ int consumer(int argc, char **argv) {
 int main(int argc, char **argv) {
     if (strstr(argv[0], "consumer")) {
         consumer(argc, argv);
+    } else if (strstr(argv[0], "mongo")) {
+        producer_mongo(argc, argv);
     } else {
         producer(argc, argv);
     }
