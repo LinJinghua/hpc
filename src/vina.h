@@ -64,6 +64,7 @@ int vina_init() {
 }
 
 int vina_run(const char* vina_file, const char* pdbqt_file) {
+    fflush(stdout);
     pid_t pid = fork();
     if (pid < 0) {
         fprintf(stderr, "[Error] fork error for %d\n", errno);
@@ -84,6 +85,7 @@ int vina_run(const char* vina_file, const char* pdbqt_file) {
 }
 
 int obabel_run(const char* pdbqt_file, const char* mol_file) {
+    fflush(stdout);
     pid_t pid = fork();
     if (pid < 0) {
         fprintf(stderr, "[Error] fork error for %d\n", errno);
