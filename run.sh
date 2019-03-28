@@ -5,10 +5,12 @@ date > date-start.txt
 for i in $(seq "1" "$1"); 
 do
     seq=$(printf "%05d" ${i})
-    out=consumer-${seq}.out
-    err=consumer-${seq}.err
     # echo ${seq}
-    srun -n 1 ~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort > "${out}" 2> "${err}" &
+    out=consumer-${seq}.\$\{i\}.out
+    err=consumer-${seq}.\$\{i\}.err
+    consumer_str="~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort > ${out} 2> ${err}"
+    command_str='for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do sleep 0.5; '${consumer_str}'& done; wait'
+    srun -n 1 bash -c "${command_str}" &
 done
 
 
