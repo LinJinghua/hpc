@@ -18,13 +18,17 @@ done
 # srun nohup ~/bin/bin/schedule > schedule.out &
 # SCHE=`squeue --format="%N" | sed '1d'` && echo ${SCHE} >  ~/jobs/sehe.host && cat ~/jobs/sehe.host
 # srun bash -c "curl --noproxy '*' ${SCHE}:8080/up 2> /dev/null && ./redis-server ./redis-conf.conf > redis.out" &
-# # ~/code/hpc/build/producer `curl --noproxy '*' ${SCHE}:8080/get` 6379 "mongodb://12.11.70.12:10101"
+# # ~/code/hpc/build/pmongo `curl --noproxy '*' ${SCHE}:8080/get` 6379 "mongodb://12.11.70.12:10101"
 # ./run.sh 20
 
+# srun bash -c "~/bin/bin/schedule &> schedule.out& ./redis-server ./redis-conf.conf &> redis.out& wait" &> /dev/null &
+# SCHE=$(cat /etc/hosts | grep $(squeue --format="%N" | sed '1d') | awk '{print $1}')  && echo ${SCHE} >  ~/jobs/sehe.host && cat ~/jobs/sehe.host
+# curl --noproxy '*' ${SCHE}:8080/up?ip=${SCHE}
+# ./run.sh 20
 
 # SCHE=`cat ~/jobs/sehe.host`
 # curl --noproxy '*' ${SCHE}:8080/get
-# srun ~/code/hpc/build/producer `curl --noproxy '*' ${SCHE}:8080/get` 6379 "mongodb://12.11.70.12:10101"
+# srun ~/code/hpc/build/pmongo `curl --noproxy '*' ${SCHE}:8080/get` 6379 "mongodb://12.11.70.12:10101"
 # redis-cli -h `curl --noproxy '*' ${SCHE}:8080/get`
 # scancel `squeue --format='%A' | sed '1d'`
 # cat consumer-000{01..20}.err | grep molecule | wc -l

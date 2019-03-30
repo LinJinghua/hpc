@@ -47,4 +47,5 @@ target_compile_definitions(producer PRIVATE TEST_ZLIB)
 add_custom_command(TARGET producer
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/producer ${CMAKE_BINARY_DIR}/consumer
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/producer ${CMAKE_BINARY_DIR}/pmongo
 )
