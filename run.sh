@@ -2,14 +2,15 @@
 # Tested using bash version 4.1.5
 SCHE=$(cat ~/jobs/sehe.host)
 date > date-start.txt
-for i in $(seq "1" "$1"); 
+for i in $(seq "1" "$1");
 do
     seq=$(printf "%05d" ${i})
     # echo ${seq}
     out=consumer-${seq}.\$\{i\}.out
     # err=consumer-${seq}.\$\{i\}.err
     consumer_str="~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort &> ${out}"
-    command_str='for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do sleep 0.5; '${consumer_str}'& done; wait'
+    pre_str="cp -rp ./software/ /dev/shm/"
+    command_str=${pre_str}'; for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do '${consumer_str}'& done; wait'
     srun -n 1 bash -c "${command_str}" &
 done
 
