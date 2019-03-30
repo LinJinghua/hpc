@@ -7,8 +7,8 @@ do
     seq=$(printf "%05d" ${i})
     # echo ${seq}
     out=consumer-${seq}.\$\{i\}.out
-    err=consumer-${seq}.\$\{i\}.err
-    consumer_str="~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort > ${out} 2> ${err}"
+    # err=consumer-${seq}.\$\{i\}.err
+    consumer_str="~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort &> ${out}"
     command_str='for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do sleep 0.5; '${consumer_str}'& done; wait'
     srun -n 1 bash -c "${command_str}" &
 done

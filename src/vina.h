@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <wait.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #ifndef VINA_WORK_DIR
 #define VINA_WORK_DIR "/dev/shm"
@@ -58,9 +59,24 @@ int vina_init() {
     if (vina_version()) {
         return 1;
     }
-    int status = system("cp -rp ./software/ " VINA_WORK_DIR);
-    (void)status;
+    if (system("cp -rp ./software/ " VINA_WORK_DIR)) {
+        sleep(1);
+    }
     return vina_version();
+}
+
+int redirect_null() {
+    int dev_null = open("/dev/null", O_WRONLY);
+    if (dev_null == -1) {
+        fprintf(stderr, "[Error] open '/dev/null' failed\n");
+        return 0;
+    }
+
+    if (dup2(dev_null, STDOUT_FILENO) == -1) {
+        fprintf(stderr,"[Error] dup2 /dev/null to STDOUT_FILENO failed\n");
+        return 0;
+    }
+    return 1;
 }
 
 int vina_run(const char* vina_file, const char* pdbqt_file) {
@@ -74,6 +90,7 @@ int vina_run(const char* vina_file, const char* pdbqt_file) {
         wait(&status);
         return status;
     }
+    redirect_null();
     if (execl(VINA_ORIGIN_DIR "/vina", "vina", "--cpu", "1",
         "--config", VINA_ORIGIN_DIR "/target.txt",
         "--receptor", VINA_ORIGIN_DIR "/target.pdbqt",

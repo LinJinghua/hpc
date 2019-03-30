@@ -128,6 +128,8 @@ int producer_mongo(int argc, char **argv) {
     // ./producer_mongo 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
     if (init_producer_mongo(argc, argv)) {
         mongo_get();
+    } else {
+        fprintf(stderr, "[Error] init_producer_mongo failed\n");
     }
     destory_producer_mongo();
     return 0;
@@ -138,6 +140,8 @@ int producer(int argc, char **argv) {
     data_entry entry;
     if (init_producer(argc, argv, &entry)) {
         file_get(&entry);
+    } else {
+        fprintf(stderr, "[Error] init_producer failed\n");
     }
     destory_producer();
     return 0;
@@ -147,6 +151,8 @@ int consumer(int argc, char **argv) {
     // ./consumer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort
     if (init_cluster(argc, argv)) {
         redis_get();
+    } else {
+        fprintf(stderr, "[Error] init_cluster failed\n");
     }
     destory_cluster();
     return 0;
