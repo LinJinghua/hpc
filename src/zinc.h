@@ -18,6 +18,15 @@ typedef struct entry_id {
 } entry_id;
 
 static entry_id _entry_id;
+static int _mongo_idxd;
+
+int mongo_idxd_get() {
+    return _mongo_idxd;
+}
+
+void mongo_idxd_set(int x) {
+    _mongo_idxd = x;
+}
 
 const char* entry_id_get_name_field() {
     return _entry_id.name_field;

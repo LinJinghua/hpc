@@ -88,7 +88,11 @@ int mongo_get() {
 #ifdef TEST_REDIS_RW
     redis_get();
 #endif // !TEST_REDIS_RW
-    bson_t* query = bson_new();
+    const int unit = 5000000;
+    const int idxd_begin = mongo_idxd_get() * unit;
+    const int idxd_end = idxd_begin + unit;
+    bson_t* query = BCON_NEW(("idxd"),
+        "{", "$gt", BCON_INT32(idxd_begin), "$lte", BCON_INT32(idxd_end), "}");
     mongoc_cursor_t* cursor = mongoc_collection_find_with_opts(
                         _mongo_res.collection, query, NULL, NULL);
     bson_destroy(query);

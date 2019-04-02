@@ -1,16 +1,20 @@
 #! /bin/bash
 # Tested using bash version 4.1.5
-SCHE=$(cat ~/jobs/sehe.host)
+SCHE=$(cat sehe.host)
 date > date-start.txt
+run_dir=/dev/shm
 for i in $(seq "1" "$1");
 do
     seq=$(printf "%05d" ${i})
     # echo ${seq}
-    out=consumer-${seq}.\$\{i\}.out
+    out=${run_dir}/consumer-${seq}.\$\{i\}.out
     # err=consumer-${seq}.\$\{i\}.err
-    consumer_str="~/code/hpc/build/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort &> ${out}"
-    pre_str="cp -rp ./software/ /dev/shm/"
-    command_str=${pre_str}'; for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do '${consumer_str}'& done; wait'
+    consumer_str="${run_dir}/software/consumer ${SCHE}:8080 zinc_datazinc_ligand_1w_sort &> ${out}"
+    pre_str="cp -rp ./software/ ${run_dir}"
+    loop_str='; for i in $(seq 1 $(grep -c ^processor /proc/cpuinfo)); do '
+    log_str="find ${run_dir} -name 'consumer-*.out' -exec mv {} ./ \;"
+    end_str="& done; wait; rm -rf /dev/shm/software/; "${log_str}
+    command_str=${pre_str}${loop_str}${consumer_str}${end_str}
     srun -n 1 bash -c "${command_str}" &
 done
 

@@ -5,6 +5,7 @@
 
 #include <mongoc.h>
 #include <bson.h>
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -44,6 +45,7 @@ int mongo_init(int argc, char **argv) {
     const char *uri_string = argc > 3? argv[3] : "mongodb://127.0.0.1:27017";
     const char *database_name = argc > 4? argv[4] : "zinc_data";
     const char *collection_name = argc > 5? argv[5] : "zinc_ligand_1w_sort";
+    mongo_idxd_set(argc > 6? atoi(argv[6]) : 0);
     entry_id_set(database_name, collection_name);
     if (argc > 7) {
         entry_id_set_field(argv[6], argv[7]);
