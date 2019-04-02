@@ -189,7 +189,7 @@ int mongo_get_all_entry() {
     }
 
     mongoc_cursor_destroy(cursor);
-    
+
     return 0;
 }
 
