@@ -45,10 +45,10 @@ int destory_producer_mongo() {
     return 0;
 }
 
-int write_result(const char* name, const char* mol_file) {
+int write_result(const char* name, double score, const char* mol_file) {
     size_t len;
     char* data = file_str(mol_file, &len);
-    return data && redis_record(name, data, len);
+    return data && redis_record(name, score, data, len);
 }
 
 int redis_get() {
@@ -63,7 +63,7 @@ int redis_get() {
         if (write_file(vina_file, entry.data, strlen(entry.data))
             && vina_run(vina_file, pdbqt_file) == 0
             && obabel_run(pdbqt_file, mol_file) == 0
-            && write_result(name, mol_file)) {
+            && write_result(name, vina_score(pdbqt_file), mol_file)) {
             fprintf(stdout, "[Info] Run task %s succ\n", name);
         } else {
             fprintf(stderr, "[Error] Run task %s failed\n", name);

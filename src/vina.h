@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <unistd.h>
 #include <errno.h>
 #include <wait.h>
@@ -16,7 +17,7 @@
 #define VINA_ORIGIN_DIR VINA_WORK_DIR "/software"
 #endif // !VINA_ORIGIN_DIR
 
-static char* _work_dir;
+static char* _work_dir = NULL;
 
 int make_work_dir() {
     char template_dir[] = VINA_WORK_DIR "/vina.XXXXXX";
@@ -99,6 +100,16 @@ int vina_run(const char* vina_file, const char* pdbqt_file) {
         exit(errno);
     }
     return 1;
+}
+
+double vina_score(const char* pdbqt_file) {
+    const size_t SCORE_ROW = 2;
+    double score = DBL_MAX;
+    char* line = file_line(pdbqt_file, SCORE_ROW);
+    if (!line || sscanf(line, "%*s%*s%*s%lf", &score) != 1) {
+        fprintf(stderr, "[Error] get score failed, set score: %lf\n", score);
+    }
+    return score;
 }
 
 int obabel_run(const char* pdbqt_file, const char* mol_file) {

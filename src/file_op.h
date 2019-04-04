@@ -8,6 +8,9 @@
 #ifndef STRING_MAX_LEN
 #define STRING_MAX_LEN (16 * 1024 * 1024)
 #endif // !STRING_MAX_LEN
+#ifndef LINE_MAX_LEN
+#define LINE_MAX_LEN (4096)
+#endif // !LINE_MAX_LEN
 
 #ifndef CHECK_AND_RETURN
 #define CHECK_AND_RETURN(condition, ret, fmt, ...) do {     \
@@ -72,6 +75,25 @@ char* file_str(const char* filename, size_t* len) {
     CHECK_ERRNO_AND_JUMP(ferror(fp), closefile);
 
     _buf[*len] = '\0';
+    fclose(fp);
+    return _buf;
+closefile:
+    fclose(fp);
+    return NULL;
+}
+
+char* file_line(const char* filename, size_t line) {
+    static char _buf[LINE_MAX_LEN];
+    FILE* fp = fopen(filename, "r");
+    CHECK_AND_RETURN(!fp, NULL, "[Error] file_line: %s", strerror(errno));
+
+    for (; line > 0; --line) {
+        char* ret = fgets(_buf, sizeof(_buf), fp);
+        CHECK_ERRNO_AND_JUMP(!ret, closefile);
+    }
+
+    CHECK_ERRNO_AND_JUMP(ferror(fp), closefile);
+
     fclose(fp);
     return _buf;
 closefile:
