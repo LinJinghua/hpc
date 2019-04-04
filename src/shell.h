@@ -21,7 +21,7 @@ const char* host_get(const char* address) {
         fprintf(stderr, "[Error] curl run failed\n");
         return "";
     }
-    size_t len;
+    size_t len = 0;
     char* redis_host = get_file(REDIS_HOST_FILE, &len);
     while (len > 0 && isspace(redis_host[len - 1])) {
         --len;

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 
 project(hpc C)
 
@@ -22,7 +22,7 @@ set(MONGOC_INCLUDE_DIRS
 set(MONGOC_LIBRARIES
     ${PROJECT_SOURCE_DIR}/lib/libbson-1.0.so
     ${PROJECT_SOURCE_DIR}/lib/libmongoc-1.0.so
-    ${PROJECT_SOURCE_DIR}/lib/libhiredis.so
+    ${PROJECT_SOURCE_DIR}/lib/libhiredis.a
     ${PROJECT_SOURCE_DIR}/lib/libz.a
 )
 
@@ -37,6 +37,7 @@ message("--   mongoc project  ${PROJECT_SOURCE_DIR}")
 
 
 add_executable(producer ${SRCS_DIR})
+set_property(TARGET producer PROPERTY C_STANDARD 99)
 target_include_directories(producer PRIVATE "${MONGOC_INCLUDE_DIRS}")
 target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
 
