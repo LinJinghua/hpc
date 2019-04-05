@@ -41,9 +41,15 @@ set_property(TARGET producer PROPERTY C_STANDARD 99)
 target_include_directories(producer PRIVATE "${MONGOC_INCLUDE_DIRS}")
 target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
 
+# target_compile_definitions(producer PRIVATE DEBUG_OUTPUT)
 # target_compile_definitions(producer PRIVATE DEBUG_CHECK)
 target_compile_definitions(producer PRIVATE TEST_ZLIB)
 # target_compile_definitions(producer PRIVATE TEST_REDIS_RW)
+# target_compile_definitions(producer PRIVATE
+    # NO_COPY_VINA
+    # VINA_WORK_DIR="${PROJECT_SOURCE_DIR}/build/cwd"
+    # VINA_ORIGIN_DIR="${PROJECT_SOURCE_DIR}/build/cwd"
+# )
 
 add_custom_command(TARGET producer
     POST_BUILD

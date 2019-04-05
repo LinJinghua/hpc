@@ -1,3 +1,4 @@
+#include "recovery.h"
 #include "redis_op.h"
 #include "mongo_op.h"
 #include "shell.h"
@@ -19,12 +20,12 @@ int init_cluster(int argc, char **argv) {
         && redis_connect(host_get(schedule_addr), REDIS_PORT);
 }
 
-int init_producer(int argc, char **argv, data_entry* entry) {
+int init_producer(int argc, char **argv, char** name, char** vina_file) {
     const char* schedule_addr = (argc > 1) ? argv[1] : "127.0.0.1:8080";
     const char* redis_queue = (argc > 2) ? argv[2] : "task";
     entry_id_check(redis_queue);
-    entry->name = (argc > 3) ? argv[3] : "target";
-    entry->data = (argc > 4) ? argv[4] : "target.pdbqt";
+    *name = (argc > 3) ? argv[3] : "target";
+    *vina_file = (argc > 4) ? argv[4] : "target.pdbqt";
     return redis_connect(host_get(schedule_addr), REDIS_PORT);
 }
 
@@ -51,6 +52,41 @@ int write_result(const char* name, double score, const char* mol_file) {
     return data && redis_record(name, score, data, len);
 }
 
+int file_get(const char* name, const char* vina_file) {
+    size_t len = 0;
+    data_entry entry;
+    entry.name = name;
+    entry.data = file_str(vina_file, &len);
+    len += strlen(entry.name) + 1;
+    return entry.data && redis_push(data_entry_string(&entry, len), len);
+}
+
+int redis_push_entry(data_entry* entry) {
+    size_t len = strlen(entry->name) + 1 + strlen(entry->data);
+    return redis_push(data_entry_string(entry, len), len);
+}
+
+int error_write_file(const char* name, data_entry* entry) {
+    fprintf(stderr, "[Error] write_file failed\n");
+    fprintf(stderr, "[Error] Run task %s failed\n", name);
+    if (redis_push_entry(entry)) {
+        fprintf(stdout, "[Info] Write back task %s succ\n", name);
+    } else {
+        fprintf(stderr, "[Error] Write back task %s failed\n", name);
+    }
+    return 0;
+}
+
+int error_run_file(const char* name, const char* vina_file) {
+    fprintf(stderr, "[Error] Run task %s failed\n", name);
+    if (file_get(name, vina_file)) {
+        fprintf(stdout, "[Info] Write back task %s succ\n", name);
+    } else {
+        fprintf(stderr, "[Error] Write back task %s failed\n", name);
+    }
+    return 0;
+}
+
 int redis_get() {
     char name[_ID_MAX_LEN];
     for (const char* str = redis_pop(); str; str = redis_pop()) {
@@ -60,26 +96,20 @@ int redis_get() {
         const char* vina_file = "vina_file";
         const char* pdbqt_file = "pdbqt_file";
         const char* mol_file = "mol_file";
-        if (write_file(vina_file, entry.data, strlen(entry.data))
-            && vina_run(vina_file, pdbqt_file) == 0
+        if (!write_file(vina_file, entry.data, strlen(entry.data))) {
+            error_write_file(name, &entry);
+            break;
+        }
+        if (vina_run(vina_file, pdbqt_file) == 0
             && obabel_run(pdbqt_file, mol_file) == 0
             && write_result(name, vina_score(pdbqt_file), mol_file)) {
             fprintf(stdout, "[Info] Run task %s succ\n", name);
         } else {
-            fprintf(stderr, "[Error] Run task %s failed\n", name);
+            error_run_file(name, vina_file);
         }
-    }
-    return 0;
-}
-
-int file_get(data_entry* entry) {
-    size_t len;
-    entry->data = file_str(entry->data, &len);
-    len += strlen(entry->name) + 1;
-    if (entry->data && redis_push(data_entry_string(entry, len), len)) {
-        fprintf(stdout, "[Info] Push succ.\n");
-    } else {
-        fprintf(stderr, "[Error] Push failed.\n");
+        if (is_interrupt()) {
+            break;
+        }
     }
     return 0;
 }
@@ -141,9 +171,13 @@ int producer_mongo(int argc, char **argv) {
 
 int producer(int argc, char **argv) {
     // ./producer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort ZINC21247520 ZINC21247520.pdbqt
-    data_entry entry;
-    if (init_producer(argc, argv, &entry)) {
-        file_get(&entry);
+    char *name, *vina_file;
+    if (init_producer(argc, argv, &name, &vina_file)) {
+        if (file_get(name, vina_file)) {
+            fprintf(stdout, "[Info] Push %s succ.\n", name);
+        } else {
+            fprintf(stderr, "[Error] Push %s failed.\n", name);
+        }
     } else {
         fprintf(stderr, "[Error] init_producer failed\n");
     }
@@ -163,6 +197,7 @@ int consumer(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    flow_control_init();
     if (strstr(argv[0], "consumer")) {
         consumer(argc, argv);
     } else if (strstr(argv[0], "mongo")) {

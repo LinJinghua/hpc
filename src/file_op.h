@@ -30,14 +30,14 @@
 #endif // !CHECK_AND_JUMP
 #define CHECK_ERRNO_AND_JUMP(condition, label) do {         \
     CHECK_AND_JUMP(condition, label,                        \
-        "[Error] get_file: %s", strerror(errno));           \
+        "[Error] get_file: %s\n", strerror(errno));         \
 } while (0)
 
 // [Correct way to read a text file into a buffer in C? [duplicate]]
 // (https://stackoverflow.com/questions/2029103/correct-way-to-read-a-text-file-into-a-buffer-in-c)
 char* get_file(const char* filename, size_t* len) {
     FILE* fp = fopen(filename, "r");
-    CHECK_AND_RETURN(!fp, NULL, "[Error] get_file: %s", strerror(errno));
+    CHECK_AND_RETURN(!fp, NULL, "[Error] get_file: %s\n", strerror(errno));
 
     char* source = NULL;
     CHECK_ERRNO_AND_JUMP(fseek(fp, 0L, SEEK_END), closefile);
@@ -61,7 +61,7 @@ void free_file(char* data) {
 char* file_str(const char* filename, size_t* len) {
     static char _buf[STRING_MAX_LEN];
     FILE* fp = fopen(filename, "r");
-    CHECK_AND_RETURN(!fp, NULL, "[Error] file_str: %s", strerror(errno));
+    CHECK_AND_RETURN(!fp, NULL, "[Error] file_str: %s\n", strerror(errno));
 
     CHECK_ERRNO_AND_JUMP(fseek(fp, 0L, SEEK_END), closefile);
     long bufsize = ftell(fp);
@@ -85,7 +85,7 @@ closefile:
 char* file_line(const char* filename, size_t line) {
     static char _buf[LINE_MAX_LEN];
     FILE* fp = fopen(filename, "r");
-    CHECK_AND_RETURN(!fp, NULL, "[Error] file_line: %s", strerror(errno));
+    CHECK_AND_RETURN(!fp, NULL, "[Error] file_line: %s\n", strerror(errno));
 
     for (; line > 0; --line) {
         char* ret = fgets(_buf, sizeof(_buf), fp);
@@ -103,7 +103,7 @@ closefile:
 
 int write_file(const char* filename, const void* bytes, size_t len) {
     FILE *fp = fopen(filename, "wb");
-    CHECK_AND_RETURN(!fp, 0, "[Error] write_file: %s", strerror(errno));
+    CHECK_AND_RETURN(!fp, 0, "[Error] write_file: %s\n", strerror(errno));
 
     size_t size = fwrite(bytes, 1, len, fp);
     fclose(fp);

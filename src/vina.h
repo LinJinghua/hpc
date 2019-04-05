@@ -1,6 +1,8 @@
 #ifndef ___VINA_H___
 #define ___VINA_H___
 
+#include "recovery.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
@@ -23,13 +25,13 @@ int make_work_dir() {
     char template_dir[] = VINA_WORK_DIR "/vina.XXXXXX";
     const char* dir = mkdtemp(template_dir);
     if (dir == NULL) {
-        perror("[Error] mkdtemp failed: ");
+        fprintf(stderr, "[Error] mkdtemp failed: %s\n", strerror(errno));
         return 0;
     }
 
     _work_dir = strdup(dir);
     if (chdir(dir) == -1) {
-        perror("[Error] chdir failed: ");
+        fprintf(stderr, "[Error] chdir failed: %s\n", strerror(errno));
         return 0;
     }
     fprintf(stdout, "[Info] PWD: %s\n", _work_dir);
@@ -44,7 +46,7 @@ int destory_work_dir() {
     snprintf(command, sizeof(command), "rm -rf %s", _work_dir);
     fprintf(stdout, "[Info] Running %s\n", command);
     if (system(command)) {
-        perror("[Error] rm -rf failed: ");
+        fprintf(stderr, "[Error] rm -rf failed: %s\n", strerror(errno));
         return 0;
     }
     free(_work_dir);
@@ -57,12 +59,14 @@ int vina_version() {
 }
 
 int vina_init() {
+#ifndef NO_COPY_VINA
     if (vina_version()) {
         return 1;
     }
     if (system("cp -rp ./software/ " VINA_WORK_DIR)) {
         sleep(1);
     }
+#endif // !NO_COPY_VINA
     return vina_version();
 }
 
@@ -74,10 +78,35 @@ int redirect_null() {
     }
 
     if (dup2(dev_null, STDOUT_FILENO) == -1) {
-        fprintf(stderr,"[Error] dup2 /dev/null to STDOUT_FILENO failed\n");
+        fprintf(stderr, "[Error] dup2 /dev/null to STDOUT_FILENO failed\n");
         return 0;
     }
     return 1;
+}
+
+int get_child_process_status(const char* process) {
+    int status;
+    do {
+        if (wait(&status) != -1) {
+            if (WIFEXITED(status)) {
+                if (WEXITSTATUS(status)) {
+                    fprintf(stderr, "[Error] %s return %d\n",
+                        process, WEXITSTATUS(status));
+                }
+                return 0;
+            }
+#ifdef DEBUG_OUTPUT
+            fprintf(stdout, "[Info] %s return %d %d %d %d %d %d %d %d\n",
+                process, status, WIFSIGNALED(status), WTERMSIG(status),
+                WIFEXITED(status), WEXITSTATUS(status),
+                WCOREDUMP(status), WIFSTOPPED(status), WIFCONTINUED(status));
+#endif // !DEBUG_OUTPUT
+            return 1;
+        }
+    } while (errno == EINTR);
+
+    fprintf(stderr, "[Error] wait %s failed: %s\n", process, strerror(errno));
+    return -1;
 }
 
 int vina_run(const char* vina_file, const char* pdbqt_file) {
@@ -87,8 +116,9 @@ int vina_run(const char* vina_file, const char* pdbqt_file) {
         fprintf(stderr, "[Error] fork error for %d\n", errno);
         return 1;
     } else if (pid > 0) {
-        int status = -1;
-        wait(&status);
+        check_interrupt(pid);
+        int status = get_child_process_status("vina");
+        set_child_pid(0);
         return status;
     }
     redirect_null();
@@ -96,7 +126,7 @@ int vina_run(const char* vina_file, const char* pdbqt_file) {
         "--config", VINA_ORIGIN_DIR "/target.txt",
         "--receptor", VINA_ORIGIN_DIR "/target.pdbqt",
         "--ligand", vina_file, "--out", pdbqt_file, NULL) < 0) {
-        perror("error on exec");
+        fprintf(stderr, "[Error] exec failed: %s\n", strerror(errno));
         exit(errno);
     }
     return 1;
@@ -119,13 +149,14 @@ int obabel_run(const char* pdbqt_file, const char* mol_file) {
         fprintf(stderr, "[Error] fork error for %d\n", errno);
         return 1;
     } else if (pid > 0) {
-        int status = -1;
-        wait(&status);
+        check_interrupt(pid);
+        int status = get_child_process_status("obabel");
+        set_child_pid(0);
         return status;
     }
     if (execl(VINA_ORIGIN_DIR "/obabel", "obabel",
         "-ipdbqt", pdbqt_file, "-omol", "-O", mol_file, NULL) < 0) {
-        perror("error on exec");
+        fprintf(stderr, "[Error] exec failed: %s\n", strerror(errno));
         exit(errno);
     }
     return 1;
