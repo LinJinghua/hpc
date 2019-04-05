@@ -12,9 +12,10 @@ function wait_job() {
 }
 
 function term_job() {
-    for job in $(jobs -p); do
-        kill -15 $job
-    done
+    echo "Capture SIGTERM"
+    # for job in $(jobs -p); do
+        # kill -15 $job
+    # done
 }
 
 trap term_job SIGINT
