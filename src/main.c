@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 int init_producer_mongo(int argc, char **argv) {
     return redis_init(argc, argv) && mongo_init(argc, argv);
@@ -27,6 +28,18 @@ int init_producer(int argc, char **argv, char** name, char** vina_file) {
     *name = (argc > 3) ? argv[3] : "target";
     *vina_file = (argc > 4) ? argv[4] : "target.pdbqt";
     return redis_connect(host_get(schedule_addr), REDIS_PORT);
+}
+
+int init_score_query(int argc, char **argv, char** name) {
+    const char* redis_queue = (argc > 3) ? argv[3] : "result";
+    *name = (argc > 4) ? argv[4] : "ZINC00717479";
+    entry_id_check(redis_queue);
+    return redis_init(argc, argv);
+}
+
+int destory_score_query() {
+    redis_destroy();
+    return 0;
 }
 
 int destory_producer() {
@@ -85,6 +98,21 @@ int error_run_file(const char* name, const char* vina_file) {
         fprintf(stderr, "[Error] Write back task %s failed\n", name);
     }
     return 0;
+}
+
+int score_get(const char* name) {
+    double score = redis_zscore(name);
+    if (isnan(score)) {
+        fprintf(stderr, "[Error] : Not find score of %s\n", name);
+        return 0;
+    }
+    const char* data = redis_get_name(name);
+    if (!data) {
+        fprintf(stderr, "[Error] : Not find data of %s\n", name);
+        return 0;
+    }
+    fprintf(stdout, "name: %s\nscore: %.15lf\ndata: %s\n", name, score, data);
+    return 1;
 }
 
 int redis_get() {
@@ -196,12 +224,24 @@ int consumer(int argc, char **argv) {
     return 0;
 }
 
+int socre_query(int argc, char **argv) {
+    // ./scorequery 127.0.0.1 6379 _zinc_datazinc_ligand_1w_sort ZINC00717479
+    char* name = NULL;
+    if (init_score_query(argc, argv, &name)) {
+        score_get(name);
+    }
+    destory_score_query();
+    return 0;
+}
+
 int main(int argc, char **argv) {
     flow_control_init();
     if (strstr(argv[0], "consumer")) {
         consumer(argc, argv);
     } else if (strstr(argv[0], "mongo")) {
         producer_mongo(argc, argv);
+    } else if (strstr(argv[0], "query")) {
+        socre_query(argc, argv);
     } else {
         producer(argc, argv);
     }

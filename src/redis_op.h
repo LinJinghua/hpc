@@ -1,12 +1,18 @@
 #ifndef ___REDIS_OP_H___
 #define ___REDIS_OP_H___
 
+#ifndef DEBUG_CHECK
+#define NDEBUG
+#endif // !DEBUG_CHECK
+
 #include "zinc.h"
 #include "zlib_op.h"
 
 #include <hiredis.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
+#include <math.h>
 
 #ifndef REDIS_RETRY_TIMES
 #define REDIS_RETRY_TIMES 3
@@ -66,7 +72,36 @@ int redis_destroy() {
     return 0;
 }
 
+const char* redis_get_name(const char* key) {
+    assert(_redis_conn);
+    assert(key);
+    redisReply* reply = redisCommand(_redis_conn, "GET %s", key);
+    if (!reply) {
+        fprintf(stderr, "[Error] Run redis GET command failed\n");
+        return 0;
+    }
+    if (reply->type == REDIS_REPLY_STRING) {
+        unsigned long len = reply->len;
+#ifdef DEBUG_CHECK
+        if (len > STRING_MAX_LEN) {
+            fprintf(stderr, "[Error] Redis GET %s: len(data): %lu\n", key, len);
+        }
+#endif // !DEBUG_CHECK
+        const char* str = uncompress_bytes(reply->str, &len);
+        freeReplyObject(reply);
+        return str;
+    }
+    if (reply->type == REDIS_REPLY_ERROR) {
+        fprintf(stderr, "[Error] Redis GET %s: %s\n", key, reply->str);
+    }
+    freeReplyObject(reply);
+    return NULL;
+}
+
 int redis_set(const char* key, const char* value, unsigned long len) {
+    assert(_redis_conn);
+    assert(key);
+    assert(value);
     value = compress_bytes(value, &len);
     redisReply* reply = redisCommand(_redis_conn,
         "SET %s %b", key, value, len);
@@ -78,21 +113,38 @@ int redis_set(const char* key, const char* value, unsigned long len) {
         freeReplyObject(reply);
         return 1;
     }
-    fprintf(stderr, "[Error] SET %s: %s\n", key, reply->str);
+    fprintf(stderr, "[Error] Redis SET %s: %s\n", key, reply->str);
     freeReplyObject(reply);
     return 0;
 }
 
+
+double redis_zscore(const char* key) {
+    assert(_redis_conn);
+    assert(key);
+    redisReply* reply = redisCommand(_redis_conn,
+        "ZSCORE %s %s", entry_id_get(), key);
+    if (!reply) {
+        fprintf(stderr, "[Error] Run redis GET command failed\n");
+        return 0;
+    }
+    if (reply->type == REDIS_REPLY_STRING) {
+        double score = strtod(reply->str, NULL);
+        freeReplyObject(reply);
+        return score;
+    }
+    if (reply->type == REDIS_REPLY_ERROR) {
+        fprintf(stderr, "[Error] Redis ZSCORE _%s %s: %s\n",
+                            entry_id_get(), key, reply->str);
+    }
+    freeReplyObject(reply);
+    return NAN;
+}
+
 int redis_record(const char* key, const double score, const char* value, unsigned long len) {
-#ifdef DEBUG_CHECK
-    if (!_redis_conn) {
-        return 0;
-    }
-#endif // !DEBUG_CHECK
-    if (!key || !value) {
-        fprintf(stderr, "[Error] redis_record %s: %s\n", key, value);
-        return 0;
-    }
+    assert(_redis_conn);
+    assert(key);
+    assert(value);
     const size_t MAX_DOUBLE_LEN = 64;
     char buf[MAX_DOUBLE_LEN];
     snprintf(buf, sizeof(buf), "%a", score);
@@ -103,7 +155,8 @@ int redis_record(const char* key, const double score, const char* value, unsigne
         return 0;
     }
     if (reply->type == REDIS_REPLY_ERROR) {
-        fprintf(stderr, "[Error] ZADD %s: %s\n", key, reply->str);
+        fprintf(stderr, "[Error] Redis ZADD _%s %s: %s\n",
+                            entry_id_get(), key, reply->str);
         freeReplyObject(reply);
     } else {
         freeReplyObject(reply);
@@ -113,11 +166,7 @@ int redis_record(const char* key, const double score, const char* value, unsigne
 }
 
 int redis_push(const char* bytes, unsigned long len) {
-#ifdef DEBUG_CHECK
-    if (!_redis_conn) {
-        return 0;
-    }
-#endif // !DEBUG_CHECK
+    assert(_redis_conn);
     if (!bytes) {
         return 0;
     }
@@ -130,7 +179,8 @@ int redis_push(const char* bytes, unsigned long len) {
             return 0;
         }
         if (reply->type == REDIS_REPLY_ERROR) {
-            fprintf(stderr, "[Error] LPUSH: %s\n", reply->str);
+            fprintf(stderr, "[Error] Redis LPUSH %s: %s\n",
+                                entry_id_get(), reply->str);
             freeReplyObject(reply);
         } else {
             freeReplyObject(reply);
@@ -141,11 +191,7 @@ int redis_push(const char* bytes, unsigned long len) {
 }
 
 const char* redis_pop() {
-#ifdef DEBUG_CHECK
-    if (!_redis_conn) {
-        return NULL;
-    }
-#endif // !DEBUG_CHECK
+    assert(_redis_conn);
     for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
         redisReply* reply = redisCommand(_redis_conn,
             "BRPOP %s " REDIS_RETRY_TIMEOUT, entry_id_get());
@@ -155,16 +201,17 @@ const char* redis_pop() {
         }
         if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2) {
             unsigned long len = reply->element[1]->len;
-            const char* str = uncompress_bytes(reply->element[1]->str, &len);
 #ifdef DEBUG_CHECK
             if (len > STRING_MAX_LEN) {
-                fprintf(stderr, "[Error] BRPOP: len(data): %lu\n", len);
+                fprintf(stderr, "[Error] Redis BRPOP: len(data): %lu\n", len);
             }
 #endif // !DEBUG_CHECK
+            const char* str = uncompress_bytes(reply->element[1]->str, &len);
             freeReplyObject(reply);
             return str;
         } else {
-            fprintf(stderr, "[Error] BRPOP: %s\n", reply->str);
+            fprintf(stderr, "[Error] Redis BRPOP %s: %s\n",
+                                entry_id_get(), reply->str);
             freeReplyObject(reply);
         }
     }
