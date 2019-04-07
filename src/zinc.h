@@ -7,6 +7,9 @@
 #ifndef _ID_MAX_LEN
 #define _ID_MAX_LEN (256)
 #endif // !_ID_MAX_LEN
+#ifndef _NAME_FIELD_MAX_LEN
+#define _NAME_FIELD_MAX_LEN (256)
+#endif // !_NAME_FIELD_MAX_LEN
 #ifndef STRING_MAX_LEN
 #define STRING_MAX_LEN (16 * 1024 * 1024)
 #endif // !STRING_MAX_LEN

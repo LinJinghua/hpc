@@ -7,6 +7,7 @@
 #include <bson.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 
 #define CHECK_MONGO_ERR(condition, ...) do {                \
@@ -90,13 +91,20 @@ int mongo_destroy() {
     return 0;
 }
 
+#define INT32_HEX_BYTES (32 / 4)
 unsigned int data_entry_set(data_entry* entry, const bson_t* doc) {
     bson_iter_t iter;
     if (!bson_iter_init(&iter, doc)) {
         return 0;
     }
+#if _NAME_FIELD_MAX_LEN <= INT32_HEX_BYTES
+#error "_NAME_FIELD_MAX_LEN should > int32 to hex bytes(32 / 4)"
+#endif
+    static char name_buf[_NAME_FIELD_MAX_LEN];
+    unsigned int idxd = UINT_MAX;
     const char* name_field = entry_id_get_name_field();
     const char* data_field = entry_id_get_data_field();
+    const char* id_field = "idxd";
     unsigned int total_len = 1;
     while (bson_iter_next(&iter)) {
         const char* key = bson_iter_key(&iter);
@@ -104,7 +112,6 @@ unsigned int data_entry_set(data_entry* entry, const bson_t* doc) {
             if (BSON_ITER_HOLDS_UTF8(&iter)) {
                 unsigned int len;
                 entry->name = bson_iter_utf8(&iter, &len);
-                total_len += len;
             } else {
                 fprintf(stderr, "[Error] Type(%s) error\n", name_field);
             }
@@ -116,10 +123,23 @@ unsigned int data_entry_set(data_entry* entry, const bson_t* doc) {
             } else {
                 fprintf(stderr, "[Error] Type(%s) error\n", data_field);
             }
+        } else if (strcmp(key, id_field) == 0) {
+            if (BSON_ITER_HOLDS_INT32(&iter)) {
+                idxd = (unsigned int)(bson_iter_int32(&iter));
+            } else {
+                fprintf(stderr, "[Error] Type(%s) error\n", id_field);
+            }
         }
+    }
+    if (idxd != UINT_MAX && entry->name) {
+        total_len += snprintf(name_buf, sizeof(name_buf), "%x%s", idxd, entry->name);
+        entry->name = name_buf;
+    } else {
+        entry->name = NULL;
     }
     return total_len;
 }
+#undef INT32_HEX_BYTES
 
 
 int mongo_get_all_entry() {
