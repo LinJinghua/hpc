@@ -30,7 +30,8 @@
 #endif // !CHECK_AND_JUMP
 #define CHECK_ERRNO_AND_JUMP(condition, label) do {         \
     CHECK_AND_JUMP(condition, label,                        \
-        "[Error] get_file: %s\n", strerror(errno));         \
+        "[Error] %s: %s\n", __PRETTY_FUNCTION__,            \
+        strerror(errno));                                   \
 } while (0)
 
 // [Correct way to read a text file into a buffer in C? [duplicate]]
@@ -88,11 +89,13 @@ char* file_line(const char* filename, size_t line) {
     CHECK_AND_RETURN(!fp, NULL, "[Error] file_line: %s\n", strerror(errno));
 
     for (; line > 0; --line) {
-        char* ret = fgets(_buf, sizeof(_buf), fp);
-        CHECK_ERRNO_AND_JUMP(!ret, closefile);
+        if (!fgets(_buf, sizeof(_buf), fp)) {
+            CHECK_AND_JUMP(feof(fp), closefile,
+                "[Error] End of file(%s) reached(need more %lu lines)\n",
+                filename, line);
+            CHECK_ERRNO_AND_JUMP(ferror(fp), closefile);
+        }
     }
-
-    CHECK_ERRNO_AND_JUMP(ferror(fp), closefile);
 
     fclose(fp);
     return _buf;
