@@ -41,6 +41,7 @@ set_property(TARGET producer PROPERTY C_STANDARD 99)
 target_include_directories(producer PRIVATE "${MONGOC_INCLUDE_DIRS}")
 target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
 
+# target_compile_definitions(producer PRIVATE CHECK_RESULT)
 # target_compile_definitions(producer PRIVATE DEBUG_OUTPUT)
 # target_compile_definitions(producer PRIVATE DEBUG_CHECK)
 target_compile_definitions(producer PRIVATE TEST_ZLIB)

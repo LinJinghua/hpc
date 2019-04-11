@@ -146,9 +146,10 @@ int mongo_get() {
 #ifdef TEST_REDIS_RW
     redis_get();
 #endif // !TEST_REDIS_RW
-    const int unit = 5000000;
+    const int unit = 1000000;
     const int idxd_begin = mongo_idxd_get() * unit;
     const int idxd_end = idxd_begin + unit;
+    fprintf(stdout, "[Info] idxd: (%d,%d]\n", idxd_begin, idxd_end);
     bson_t* query = BCON_NEW(("idxd"),
         "{", "$gt", BCON_INT32(idxd_begin), "$lte", BCON_INT32(idxd_end), "}");
     mongoc_cursor_t* cursor = mongoc_collection_find_with_opts(
@@ -166,6 +167,12 @@ int mongo_get() {
     while (mongoc_cursor_next(cursor, &doc)) {
         data_entry_init(&entry);
         unsigned long len = data_entry_set(&entry, doc);
+#ifdef CHECK_RESULT
+        if (redis_get_name(entry.name)) {
+            continue;
+        }
+        fprintf(stdout, "[Info] Not result: %s\n", entry.name);
+#endif // !CHECK_RESULT
         redis_push(data_entry_string(&entry, len), len);
 #ifdef TEST_REDIS_RW
         const char* str = redis_pop();
@@ -187,7 +194,7 @@ int mongo_get() {
 }
 
 int producer_mongo(int argc, char **argv) {
-    // ./producer_mongo 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
+    // ./pmongo 10.186.5.116 6379 "mongodb://12.11.70.12:10101" wega_data DrugBank
     if (init_producer_mongo(argc, argv)) {
         mongo_get();
     } else {
