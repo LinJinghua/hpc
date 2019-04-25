@@ -3,6 +3,7 @@
 #include "mongo_op.h"
 #include "shell.h"
 #include "vina.h"
+#include "benchmark.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -223,7 +224,15 @@ int producer(int argc, char **argv) {
 int consumer(int argc, char **argv) {
     // ./consumer 127.0.0.1:8080 zinc_datazinc_ligand_1w_sort
     if (init_cluster(argc, argv)) {
+#if defined(RUN_BENCHMARK_R) && defined(RUN_BENCHMARK_W)
+        redis_get_rw_benchmark();
+#elif defined(RUN_BENCHMARK_R)
+        redis_get_read_benchmark();
+#elif defined(RUN_BENCHMARK_W)
+        redis_get_write_benchmark();
+#else
         redis_get();
+#endif // !CHECK_RESULT
     } else {
         fprintf(stderr, "[Error] init_cluster failed\n");
     }
@@ -242,6 +251,7 @@ int socre_query(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    TIME_MEASURE_BEGIN;
     flow_control_init();
     if (strstr(argv[0], "consumer")) {
         consumer(argc, argv);
@@ -252,5 +262,6 @@ int main(int argc, char **argv) {
     } else {
         producer(argc, argv);
     }
+    TIME_MEASURE_END(__PRETTY_FUNCTION__);
     return 0;
 }

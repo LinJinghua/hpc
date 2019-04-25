@@ -32,7 +32,7 @@ int redis_check() {
         return 0;
     }
     if (_redis_conn->err) {
-        fprintf(stderr, "[Error] Redis connection error: %s\n", _redis_conn->errstr);
+        fprintf(stdout, "[Info] Redis connection error: %s\n", _redis_conn->errstr);
         redisFree(_redis_conn);
         _redis_conn = NULL;
         return 0;
@@ -41,30 +41,23 @@ int redis_check() {
 }
 
 int redis_connect(const char* hostname, int port) {
-    struct timeval timeout = { 1, 500000 }; // 1.5 seconds
-    _redis_conn = redisConnectWithTimeout(hostname, port, timeout);
-    return redis_check();
+    struct timeval timeout = { 2, 500000 }; // 2.5 seconds
+    for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
+        _redis_conn = redisConnectWithTimeout(hostname, port, timeout);
+        if (redis_check()) {
+            fprintf(stdout, "[Info] Connect redis: %s:%d succ\n", hostname, port);
+            return 1;
+        }
+    }
+    fprintf(stderr, "[Error] Connect redis: %s:%d failed\n", hostname, port);
+    return 0;
 }
 
 int redis_init(int argc, char **argv) {
-    _redis_conn = NULL;
-    unsigned int isunix = 0;
     const char* hostname = (argc > 1) ? argv[1] : "127.0.0.1";
-
-    if (argc > 2) {
-        if (*argv[2] == 'u' || *argv[2] == 'U') {
-            isunix = 1;
-            /* in this case, host is the path to the unix socket */
-            fprintf(stdout, "[Warning] Will connect to unix socket @%s\n", hostname);
-        }
-    }
-
     int port = (argc > 2) ? atoi(argv[2]) : REDIS_PORT;
 
-    struct timeval timeout = { 1, 500000 }; // 1.5 seconds
-    _redis_conn = isunix? redisConnectUnixWithTimeout(hostname, timeout)
-                        : redisConnectWithTimeout(hostname, port, timeout);
-    return redis_check();
+    return redis_connect(hostname, port);
 }
 
 int redis_destroy() {

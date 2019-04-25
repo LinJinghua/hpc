@@ -44,6 +44,8 @@ target_link_libraries(producer PRIVATE "${MONGOC_LIBRARIES}")
 # target_compile_definitions(producer PRIVATE CHECK_RESULT)
 # target_compile_definitions(producer PRIVATE DEBUG_OUTPUT)
 # target_compile_definitions(producer PRIVATE DEBUG_CHECK)
+# target_compile_definitions(producer PRIVATE RUN_BENCHMARK_R)
+# target_compile_definitions(producer PRIVATE RUN_BENCHMARK_W)
 target_compile_definitions(producer PRIVATE TEST_ZLIB)
 # target_compile_definitions(producer PRIVATE TEST_REDIS_RW)
 # target_compile_definitions(producer PRIVATE

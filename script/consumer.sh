@@ -24,9 +24,11 @@ trap term_job SIGTERM
 SCHE=$(cat ./sehe.host)
 run_dir=/dev/shm
 host_name=$(hostname)
+log_file=consumer-${host_name}.out
 
 # source /WORK/app/osenv/ln1/set3.sh
-cp -rpf ./software/ ${run_dir}
+tar -xzf software.tar.gz -C ${run_dir}
+# cp -rpf ./software/ ${run_dir}
 
 process_num=$(grep -c ^processor /proc/cpuinfo)
 for i in $(seq 1 ${process_num}); do
@@ -37,5 +39,13 @@ done
 
 wait_job
 
+# find ${run_dir} -maxdepth 1 -name 'consumer*.out' -exec mv {} ./ \;
+for (( i=1; i<=${process_num}; ++i )); do
+    ii=$(printf "%02d" ${i})
+    out=${run_dir}/consumer-${host_name}.${ii}.out
+    echo ${out} >> ${log_file}
+    cat ${out} >> ${log_file}
+    rm -f ${out}&
+done
+mv ${log_file} ./
 rm -rf ${run_dir}/software/
-find ${run_dir} -maxdepth 1 -name 'consumer*.out' -exec mv {} ./ \;
