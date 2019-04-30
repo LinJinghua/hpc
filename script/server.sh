@@ -5,4 +5,4 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=2
 
-srun bash -c "./schedule &> schedule.out& ./redis-server ./redis-conf.conf &> redis.out& wait"
+srun bash -c "ulimit -u unlimited && ./schedule &> schedule.out& ./redis-server ./redis-conf.conf &> redis.out& wait"
