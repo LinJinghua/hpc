@@ -63,7 +63,12 @@ int destory_producer_mongo() {
 int write_result(const char* name, double score, const char* mol_file) {
     size_t len;
     char* data = file_str(mol_file, &len);
-    return data && redis_record(name, score, data, len);
+    if (!data) {
+        fprintf(stderr, "[Error] Get %s result failed\n", name);
+        term_signal(-1);
+        return 0;
+    }
+    return redis_record(name, score, data, len);
 }
 
 int file_get(const char* name, const char* vina_file) {

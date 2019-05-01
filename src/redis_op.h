@@ -41,6 +41,10 @@ int redis_check() {
 }
 
 int redis_connect(const char* hostname, int port) {
+    if (!hostname) {
+        fprintf(stderr, "[Error] Connect redis with NULL hostname\n");
+        return 0;
+    }
     struct timeval timeout = { 2, 500000 }; // 2.5 seconds
     for (unsigned test = REDIS_RETRY_TIMES; test--; ) {
         _redis_conn = redisConnectWithTimeout(hostname, port, timeout);

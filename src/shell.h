@@ -19,10 +19,13 @@ const char* host_get(const char* address) {
         REDIS_HOST_FILE " 2> /dev/null", address);
     if (system(curl)) {
         fprintf(stderr, "[Error] curl run failed\n");
-        return "";
+        return NULL;
     }
     size_t len = 0;
     char* redis_host = get_file(REDIS_HOST_FILE, &len);
+    if (!redis_host) {
+        return NULL;
+    }
     while (len > 0 && isspace(redis_host[len - 1])) {
         --len;
     }
